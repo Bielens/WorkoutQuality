@@ -1,0 +1,196 @@
+---
+title: "Predicting Workout Quality"
+author: "S. Blackstone"
+date: "19 May 2015"
+output: html_document
+---
+## Introduction
+Quoted from the assignment:
+ 
+<blockquote style="font-size:10pt"> Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, the goal is to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different way.</blockquote>
+
+The task at hand is to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. The participants were asked to perform barbell lifts correctly and incorrectly in 5 different ways. Using the data, build and test a model that predicts in which way an exercise is carried out.
+
+## Data
+The training data for this project were taken from 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+and the test data from 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+Original source for the data, where more information can be found: http://groupware.les.inf.puc-rio.br/har
+
+After a quick peek in the training.csv file it could be seen that missing values had either the string "NA" or were seimply left out. A number of instances of the string "#DIV/0!" were also seen.
+
+```{r}
+  ## If not already done so, download the data files 
+  ## download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv","pml-training.csv",method="curl")
+  ## download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv","pml-traning.csv",method="curl")
+  traindata <- read.csv("pml-training.csv", na.strings=c("","NA","#DIV/0!"), row.names=NULL)
+  testdata  <- read.csv("pml-testing.csv" , na.strings=c("","NA","#DIV/0!"), row.names=NULL)
+  dim(traindata)
+```
+
+### Variable reduction
+The first step in building the model is selecting the predictor variables. Not all columns in the data set are suitable, and we will need to remove the unsuitable ones. 
+
+The columns that we need to be removed from the data set:
+
+1. Identifier-like columns that are not predictors in the model:
+    + row numbers
+    + username
+    + timestamp
+    + frame id
+    + etc
+2. Columns with too many NA values
+3. Columns with too little variability (Near Zero Variance variables)
+
+#### Ad 1. - identifier-like columns
+The first 7 columns hold information on the subject, the date/time, etc. that cannot sensibly be used as a predictor on the model. They are removed, from both the training and test data.
+
+```{r}
+    traindata <- traindata[,-(1:7)]
+    testdata  <- testdata[,-(1:7)] 
+```
+
+#### Ad 2. - columns with too many missing values
+To determine which columns to remove based on high number of NA values we calculate the percentage of NA values for each column using the `summarise_each` function in the `dplyr` package. 
+
+```{r  warning=FALSE,message=FALSE}
+  require(dplyr)
+
+  ## aggregation function
+  perc_na <- function(x) {
+    sum(is.na(x))/length(x)
+  }
+
+  ## Calculate the percentage NA for every column 
+  na_stats <- summarise_each(traindata, funs(perc_na))
+  
+  ## transpose for easier filtering
+  na_stats <- t(na_stats)
+  
+  ## Give a summary of the percentage of NA where there are NA values:
+  summary(na_stats[na_stats[,1]>0,1]) -> na_stats_sum
+  na_stats_sum
+```
+
+It turns out that for *all* columns that do have NA values in them, the percentage is very high, $\geq$ `r 100*as.numeric(na_stats_sum["Min."])`%. Because this percentage is very high, we'll remove all these columns.
+
+```{r}
+   nacolumnnames <- rownames(as.data.frame(na_stats[na_stats[,1]>0,]))
+   traindata <- select(traindata, -one_of(nacolumnnames)) 
+   testdata  <- select(testdata, -one_of(nacolumnnames)) 
+   dim(traindata)
+```
+
+#### Ad. 3 - Near Zero Variance variables
+The `nearZeroVar` function in the `caret` package can be used to find out which of the columns have little to contribute to the model.
+
+```{r warning=FALSE, message=FALSE}
+   require(caret)
+   nearZero <- nearZeroVar(traindata,saveMetrics=TRUE)
+   length(rownames(nearZero[nearZero$nzv,]))
+```
+
+Apparently, there are no near zero variance columns left after the columns wtih too many NA's were removed.
+
+### Data Splitting
+Next, the training data are split into two sets for model building. The model is built with the training part, and tested with the test part.
+
+```{r}
+  inTrain <- createDataPartition(y=traindata$classe,p=0.6,list=FALSE)
+  trainSet <- traindata[inTrain,]
+  testSet  <- traindata[-inTrain,]
+```
+
+## Model Building and Tuning
+The problem at hand is a classification problem. We will try two different prediction models that are particularly well suited for classification problems, and pick the one that performs best. The two models are a Decision Tree, and Random Forests.
+
+In both approaches we use 5-fold resampling for cross validation.
+
+### Decision Tree
+The model is built using the `rpart` R package, as per the following code block. To get an impression of te performance of this model a confusion matrix is constructed using the predicted classe values by applying the model to the test set and the actual test set classe values. 
+
+```{r message=FALSE,warning=FALSE}
+  set.seed(54321)
+
+  ## Use 5-fold sampling cross-validation
+  fitControl <- trainControl(method = "cv",
+                             number = 5)
+  ## Fit the model, method="rpart"
+  dtFit <- train(classe ~ .,
+                 data = trainSet,
+                 trControl = fitControl,
+                 method = "rpart")
+  ## Generate predictions based on the model fit and the test set
+  predictionsDT <- predict(dtFit, newdata=testSet)
+
+  ## Show the confusion matrix
+  cmDT <- confusionMatrix(predictionsDT,testSet$classe)
+  cmDT
+```
+As can be seen from the confusion matrix, the accuracy of this model (`r cmDT$overall["Accuracy"]`) is not very high. The out-of-sample error rate is estimated by the number of incorrect predictions divided by the total number of values:
+
+```{r}
+  sum(predictionsDT != testSet$classe)/length(testSet$classe)
+```
+
+
+### Random Forest
+The second model that will be evaluated is a Random Forest model. It is built as per the following code block. Again, to get an impression of te performance of this model a confusion matrix is constructed using the predicted classe values by applying the model to the test set and the actual test set classe values.
+
+```{r message=FALSE,warning=FALSE}
+  require(doMC)
+  registerDoMC(cores=3)
+
+  set.seed(54321)
+
+  ## Use 5-fold sampling cross-validation
+  fitControl <- trainControl(method = "cv",
+                             number = 5)
+
+  ## Fit the model, method="rf"
+  rfFit <- train(classe ~ ., data = trainSet,
+                 method = "rf",
+                 trControl = fitControl,
+                 allowParallel=TRUE)
+
+  ## Generate predictions based on the model fit and the test set
+  predictionsRF <- predict(rfFit, newdata=testSet)
+  
+  ## Show the confusion matrix
+  cmRF <- confusionMatrix(predictionsRF,testSet$classe)
+  cmRF
+```
+
+The accuracy, as can be seen from the confusion matrix above, is `r cmRF$overall["Accuracy"]`.
+
+The out-of-sample error rate is again estimated by the number of incorrect predictions divided by the total number of values:
+
+```{r}
+  sum(predictionsRF != testSet$classe)/length(testSet$classe)
+```
+
+These figures are much better than for the Decision Tree model; we'll use the Random Forest model to predict the classe variable in the testdata. 
+
+```{r}
+answers <- predict(rfFit, newdata=testdata)
+answers
+```
+
+## Conclusion
+
+## Answer File Generation
+```{r}
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+pml_write_files(answers)
+```
