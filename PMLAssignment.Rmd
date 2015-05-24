@@ -181,8 +181,6 @@ answers <- predict(rfFit, newdata=testdata)
 answers
 ```
 
-## Conclusion
-
 ## Answer File Generation
 ```{r}
 pml_write_files = function(x){

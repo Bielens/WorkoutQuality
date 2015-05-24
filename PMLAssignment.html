@@ -10,7 +10,7 @@
 
 <meta name="author" content="S. Blackstone" />
 
-<meta name="date" content="2015-05-20" />
+<meta name="date" content="2015-05-19" />
 
 <title>Predicting Workout Quality</title>
 
@@ -170,8 +170,7 @@ Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible t
 
   ## Use 5-fold sampling cross-validation
   fitControl &lt;- trainControl(method = &quot;cv&quot;,
-                             number = 5,
-                             classProbs = TRUE)
+                             number = 5)
   ## Fit the model, method=&quot;rpart&quot;
   dtFit &lt;- train(classe ~ .,
                  data = trainSet,
@@ -187,46 +186,42 @@ Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible t
 ## 
 ##           Reference
 ## Prediction    A    B    C    D    E
-##          A 2014  634  652  575  211
-##          B   35  396   23  211   82
-##          C  174  488  693  500  496
+##          A 2015  597  620  571  204
+##          B   42  529   42  256  187
+##          C  171  392  706  459  386
 ##          D    0    0    0    0    0
-##          E    9    0    0    0  653
+##          E    4    0    0    0  665
 ## 
 ## Overall Statistics
 ##                                           
-##                Accuracy : 0.4787          
-##                  95% CI : (0.4676, 0.4898)
+##                Accuracy : 0.499           
+##                  95% CI : (0.4879, 0.5101)
 ##     No Information Rate : 0.2845          
 ##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
 ##                                           
-##                   Kappa : 0.3192          
+##                   Kappa : 0.346           
 ##  Mcnemar's Test P-Value : NA              
 ## 
 ## Statistics by Class:
 ## 
 ##                      Class: A Class: B Class: C Class: D Class: E
-## Sensitivity            0.9023  0.26087  0.50658   0.0000  0.45284
-## Specificity            0.6309  0.94453  0.74406   1.0000  0.99859
-## Pos Pred Value         0.4929  0.53012  0.29477      NaN  0.98640
-## Neg Pred Value         0.9420  0.84195  0.87716   0.8361  0.89017
+## Sensitivity            0.9028  0.34848  0.51608   0.0000  0.46117
+## Specificity            0.6452  0.91672  0.78265   1.0000  0.99938
+## Pos Pred Value         0.5029  0.50095  0.33396      NaN  0.99402
+## Neg Pred Value         0.9435  0.85434  0.88451   0.8361  0.89174
 ## Prevalence             0.2845  0.19347  0.17436   0.1639  0.18379
-## Detection Rate         0.2567  0.05047  0.08833   0.0000  0.08323
-## Detection Prevalence   0.5208  0.09521  0.29964   0.0000  0.08437
-## Balanced Accuracy      0.7666  0.60270  0.62532   0.5000  0.72572</code></pre>
-<p>As can be seen from the confusion matrix, the accuracy of this model (0.4787153) is not very high. The out-of-sample error rate is estimated by the number of incorrect predictions divided by the total number of values:</p>
+## Detection Rate         0.2568  0.06742  0.08998   0.0000  0.08476
+## Detection Prevalence   0.5107  0.13459  0.26944   0.0000  0.08527
+## Balanced Accuracy      0.7740  0.63260  0.64937   0.5000  0.73027</code></pre>
+<p>As can be seen from the confusion matrix, the accuracy of this model (0.4989804) is not very high. The out-of-sample error rate is estimated by the number of incorrect predictions divided by the total number of values:</p>
 <pre class="r"><code>  sum(predictionsDT != testSet$classe)/length(testSet$classe)</code></pre>
-<pre><code>## [1] 0.5212847</code></pre>
+<pre><code>## [1] 0.5010196</code></pre>
 </div>
 <div id="random-forest" class="section level3">
 <h3>Random Forest</h3>
 <p>The second model that will be evaluated is a Random Forest model. It is built as per the following code block. Again, to get an impression of te performance of this model a confusion matrix is constructed using the predicted classe values by applying the model to the test set and the actual test set classe values.</p>
-<pre class="r"><code>  require(doMC)</code></pre>
-<pre><code>## Loading required package: doMC
-## Loading required package: foreach
-## Loading required package: iterators
-## Loading required package: parallel</code></pre>
-<pre class="r"><code>  registerDoMC(cores=3)
+<pre class="r"><code>  require(doMC)
+  registerDoMC(cores=3)
 
   set.seed(54321)
 
@@ -238,17 +233,9 @@ Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible t
   rfFit &lt;- train(classe ~ ., data = trainSet,
                  method = &quot;rf&quot;,
                  trControl = fitControl,
-                 allowParallel=TRUE)</code></pre>
-<pre><code>## Loading required package: randomForest
-## randomForest 4.6-10
-## Type rfNews() to see new features/changes/bug fixes.
-## 
-## Attaching package: 'randomForest'
-## 
-## The following object is masked from 'package:dplyr':
-## 
-##     combine</code></pre>
-<pre class="r"><code>  ## Generate predictions based on the model fit and the test set
+                 allowParallel=TRUE)
+
+  ## Generate predictions based on the model fit and the test set
   predictionsRF &lt;- predict(rfFit, newdata=testSet)
   
   ## Show the confusion matrix
@@ -258,46 +245,43 @@ Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible t
 ## 
 ##           Reference
 ## Prediction    A    B    C    D    E
-##          A 2225    9    0    0    0
-##          B    3 1502   10    1    0
-##          C    3    7 1351   12    2
-##          D    0    0    6 1273    3
-##          E    1    0    1    0 1437
+##          A 2228    7    0    0    0
+##          B    3 1500   17    0    0
+##          C    0   11 1348   27    2
+##          D    0    0    3 1258    3
+##          E    1    0    0    1 1437
 ## 
 ## Overall Statistics
-##                                           
-##                Accuracy : 0.9926          
-##                  95% CI : (0.9905, 0.9944)
-##     No Information Rate : 0.2845          
-##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
-##                                           
-##                   Kappa : 0.9906          
-##  Mcnemar's Test P-Value : NA              
+##                                          
+##                Accuracy : 0.9904         
+##                  95% CI : (0.988, 0.9925)
+##     No Information Rate : 0.2845         
+##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16      
+##                                          
+##                   Kappa : 0.9879         
+##  Mcnemar's Test P-Value : NA             
 ## 
 ## Statistics by Class:
 ## 
 ##                      Class: A Class: B Class: C Class: D Class: E
-## Sensitivity            0.9969   0.9895   0.9876   0.9899   0.9965
-## Specificity            0.9984   0.9978   0.9963   0.9986   0.9997
-## Pos Pred Value         0.9960   0.9908   0.9825   0.9930   0.9986
-## Neg Pred Value         0.9988   0.9975   0.9974   0.9980   0.9992
+## Sensitivity            0.9982   0.9881   0.9854   0.9782   0.9965
+## Specificity            0.9988   0.9968   0.9938   0.9991   0.9997
+## Pos Pred Value         0.9969   0.9868   0.9712   0.9953   0.9986
+## Neg Pred Value         0.9993   0.9972   0.9969   0.9957   0.9992
 ## Prevalence             0.2845   0.1935   0.1744   0.1639   0.1838
-## Detection Rate         0.2836   0.1914   0.1722   0.1622   0.1832
-## Detection Prevalence   0.2847   0.1932   0.1752   0.1634   0.1834
-## Balanced Accuracy      0.9976   0.9936   0.9919   0.9943   0.9981</code></pre>
-<p>The accuracy, as can be seen from the confusion matrix above, is 0.9926077.</p>
+## Detection Rate         0.2840   0.1912   0.1718   0.1603   0.1832
+## Detection Prevalence   0.2849   0.1937   0.1769   0.1611   0.1834
+## Balanced Accuracy      0.9985   0.9925   0.9896   0.9887   0.9981</code></pre>
+<p>The accuracy, as can be seen from the confusion matrix above, is 0.990441.</p>
 <p>The out-of-sample error rate is again estimated by the number of incorrect predictions divided by the total number of values:</p>
 <pre class="r"><code>  sum(predictionsRF != testSet$classe)/length(testSet$classe)</code></pre>
-<pre><code>## [1] 0.007392302</code></pre>
+<pre><code>## [1] 0.009559011</code></pre>
 <p>These figures are much better than for the Decision Tree model; we’ll use the Random Forest model to predict the classe variable in the testdata.</p>
 <pre class="r"><code>answers &lt;- predict(rfFit, newdata=testdata)
 answers</code></pre>
 <pre><code>##  [1] B A B A A E D B A A B C B A E E A B B B
 ## Levels: A B C D E</code></pre>
 </div>
-</div>
-<div id="conclusion" class="section level2">
-<h2>Conclusion</h2>
 </div>
 <div id="answer-file-generation" class="section level2">
 <h2>Answer File Generation</h2>
